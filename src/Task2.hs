@@ -62,20 +62,23 @@ instance Parse IntOp where
 instance (Parse a, Parse op) => Parse (Expr a op) where
 
   parse :: (Parse a, Parse op) => String -> Maybe (Expr a op)
-  parse = parseTokens [] . words where
-    parseTokens stack [] 
-      | [result] <- stack = Just result
-      | otherwise         = Nothing
-    parseTokens stack (t:tokens) = 
-      case parse t of
-        Just a  -> parseTokens (Lit a : stack) tokens
-        Nothing -> case stack of
-          (l : r : es) -> case parse t of
-            Just op -> parseTokens (BinOp op r l : es) tokens
-            Nothing -> parseVar stack t tokens 
-          _         -> parseVar stack t tokens 
+  parse = parseTokens [] . words  
 
-    parseVar stack t = parseTokens (Var t : stack) 
+parseTokens :: (Parse a, Parse op) => [Expr a op] -> [String] -> Maybe (Expr a op)
+parseTokens stack [] 
+  | [result] <- stack = Just result
+  | otherwise         = Nothing
+parseTokens stack (t:tokens) = 
+  case parse t of
+    Just a  -> parseTokens (Lit a : stack) tokens
+    Nothing -> case stack of
+      (l : r : es) -> case parse t of
+        Just op -> parseTokens (BinOp op r l : es) tokens
+        Nothing -> parseVar stack t tokens 
+      _         -> parseVar stack t tokens 
+
+parseVar :: (Parse a, Parse op) => [Expr a op] -> String -> [String] -> Maybe (Expr a op)
+parseVar stack t = parseTokens (Var t : stack) 
 
 -- * Evaluation
 
@@ -134,9 +137,7 @@ evalExpr vars (BinOp op l r)     = case (evalExpr vars l, evalExpr vars r) of
 -- Nothing
 --
 evaluateInteger :: [(String, Integer)] -> String -> Maybe Integer
-evaluateInteger var s = case parse s :: Maybe (Expr Integer IntOp) of
-  Just e  -> evalExpr var e
-  Nothing -> Nothing
+evaluateInteger = evaluate reifyInteger 
 
 
 -- | Parses given expression in Reverse Polish Notation and evaluates it
