@@ -1,10 +1,12 @@
 {-# OPTIONS_GHC -Wall #-}
--- The above pragma enables all warnings
-
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE InstanceSigs #-}
+
 
 module Task2 where
 
+import Text.Read (readMaybe)
 import Task1 (Parse, Parse(..))
 
 -- * Expression data type
@@ -25,6 +27,20 @@ data IntOp = Add | Mul | Sub
 
 -- * Parsing
 
+instance Parse Integer where 
+  parse :: String -> Maybe Integer
+  parse = readMaybe
+
+
+instance Parse IntOp where 
+  parse :: String -> Maybe IntOp
+  parse s = case s of
+    "+" -> Just Add
+    "*" -> Just Mul
+    "-" -> Just Sub
+    _   -> Nothing
+
+
 -- | Parses given expression in Reverse Polish Notation
 -- wrapped in 'Maybe' with 'Nothing' indicating failure to parse
 --
@@ -41,8 +57,27 @@ data IntOp = Add | Mul | Sub
 -- >>> parse "2 3" :: Maybe (Expr Integer IntOp)
 -- Nothing
 --
+
 instance (Parse a, Parse op) => Parse (Expr a op) where
-  parse = error "TODO: define parse (Parse (Expr a op))"
+
+  parse :: (Parse a, Parse op) => String -> Maybe (Expr a op)
+  parse = parseTokens [] . words  
+
+parseTokens :: (Parse a, Parse op) => [Expr a op] -> [String] -> Maybe (Expr a op)
+parseTokens stack [] 
+  | [result] <- stack = Just result
+  | otherwise         = Nothing
+parseTokens stack (t:tokens) = 
+  case parse t of
+    Just a  -> parseTokens (Lit a : stack) tokens
+    Nothing -> case stack of
+      (r : l : es) -> case parse t of
+        Just op -> parseTokens (BinOp op l r: es) tokens
+        Nothing -> parseVar stack t tokens 
+      _         -> parseVar stack t tokens 
+
+parseVar :: (Parse a, Parse op) => [Expr a op] -> String -> [String] -> Maybe (Expr a op)
+parseVar stack t = parseTokens (Var t : stack) 
 
 -- * Evaluation
 
@@ -50,6 +85,13 @@ instance (Parse a, Parse op) => Parse (Expr a op) where
 class Eval a op where
   -- | Evaluates given binary operation with provided arguments
   evalBinOp :: op -> a -> a -> a
+
+
+instance Eval Integer IntOp where
+  evalBinOp op = case op of
+    Add -> (+)
+    Mul -> (*)
+    Sub -> (-)
 
 -- | Evaluates given 'Expr' using given association list of variable values
 --
@@ -65,7 +107,12 @@ class Eval a op where
 -- Nothing
 --
 evalExpr :: (Eval a op) => [(String, a)] -> Expr a op -> Maybe a
-evalExpr = error "TODO: define evalExpr"
+evalExpr _ (Lit x)               = Just x 
+evalExpr vars (Var v)            = lookup v vars
+evalExpr vars (BinOp op l r)     = case (evalExpr vars l, evalExpr vars r) of
+  (Just correctL, Just correctR) -> Just (evalBinOp op correctL correctR)
+  _                              -> Nothing
+
 
 -- | Parses given integer expression in Reverse Polish Notation and evaluates it
 -- using given association list of variable values
@@ -89,7 +136,8 @@ evalExpr = error "TODO: define evalExpr"
 -- Nothing
 --
 evaluateInteger :: [(String, Integer)] -> String -> Maybe Integer
-evaluateInteger = error "TODO: define evaluateInteger"
+evaluateInteger = evaluate reifyInteger 
+
 
 -- | Parses given expression in Reverse Polish Notation and evaluates it
 -- using given association list of variable values
@@ -102,7 +150,7 @@ evaluateInteger = error "TODO: define evaluateInteger"
 --
 evaluate :: (Eval a op, Parse a, Parse op) => Reify a op -> [(String, a)] -> String -> Maybe a
 evaluate reify m s = case parse s of
-  Just e -> evalExpr m (reify e)
+  Just e  -> evalExpr m (reify e)
   Nothing -> Nothing
 
 -- * Helpers

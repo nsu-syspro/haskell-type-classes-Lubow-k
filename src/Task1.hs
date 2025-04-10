@@ -1,7 +1,11 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE InstanceSigs #-}
 -- The above pragma enables all warnings
 
 module Task1 where
+
+import Text.Read (readMaybe)
+import Prelude (Integer, Show, String, Maybe(Just, Nothing), (+), (*), (.), words, fmap, otherwise)
 
 -- * Expression data type
 
@@ -28,7 +32,10 @@ data IExpr =
 -- 9
 --
 evalIExpr :: IExpr -> Integer
-evalIExpr = error "TODO: define evalIExpr"
+evalIExpr (Lit x)   = x
+evalIExpr (Add l r) = evalIExpr l + evalIExpr r
+evalIExpr (Mul l r) = evalIExpr l * evalIExpr r
+
 
 -- * Parsing
 
@@ -55,7 +62,24 @@ class Parse a where
 -- Nothing
 --
 instance Parse IExpr where
-  parse = error "TODO: define parse (Parse IExpr)"
+  parse :: String -> Maybe IExpr
+  parse = parseTokens [] . words where 
+    parseTokens :: [IExpr] -> [String] -> Maybe IExpr
+    parseTokens stack []
+      | [result] <- stack = Just result
+      | otherwise         = Nothing
+    parseTokens stack (t:tokens) =
+        case t of
+            "+"  -> apply Add stack tokens
+            "*"  -> apply Mul stack tokens
+            s    -> case readMaybe s of
+                      Just num -> parseTokens (Lit num : stack) tokens
+                      Nothing  -> Nothing 
+
+    apply :: (IExpr -> IExpr -> IExpr) -> [IExpr] -> [String] -> Maybe IExpr
+    apply op (y:x:rest) tokens = parseTokens (op x y : rest) tokens 
+    apply _ _ _                = Nothing 
+
 
 -- * Evaluation with parsing
 
@@ -77,4 +101,4 @@ instance Parse IExpr where
 -- Nothing
 --
 evaluateIExpr :: String -> Maybe Integer
-evaluateIExpr = error "TODO: define evaluateIExpr"
+evaluateIExpr = fmap evalIExpr . parse
