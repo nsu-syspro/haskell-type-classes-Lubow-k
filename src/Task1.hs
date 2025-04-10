@@ -4,7 +4,8 @@
 
 module Task1 where
 
-import Prelude (Integer, Show, String, Maybe(Just, Nothing), (+), (*), (.), reads, words, fmap, otherwise)
+import Text.Read (readMaybe)
+import Prelude (Integer, Show, String, Maybe(Just, Nothing), (+), (*), (.), words, fmap, otherwise)
 
 -- * Expression data type
 
@@ -71,9 +72,9 @@ instance Parse IExpr where
         case t of
             "+"  -> apply Add stack tokens
             "*"  -> apply Mul stack tokens
-            s    -> case reads s of
-                    [(num, "")] -> parseTokens (Lit num : stack) tokens
-                    _           -> Nothing 
+            s    -> case readMaybe s of
+                      Just num -> parseTokens (Lit num : stack) tokens
+                      Nothing  -> Nothing 
 
     apply :: (IExpr -> IExpr -> IExpr) -> [IExpr] -> [String] -> Maybe IExpr
     apply op (y:x:rest) tokens = parseTokens (op x y : rest) tokens 

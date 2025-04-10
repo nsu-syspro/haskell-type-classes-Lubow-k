@@ -6,6 +6,7 @@
 
 module Task2 where
 
+import Text.Read (readMaybe)
 import Task1 (Parse, Parse(..))
 
 -- * Expression data type
@@ -28,9 +29,7 @@ data IntOp = Add | Mul | Sub
 
 instance Parse Integer where 
   parse :: String -> Maybe Integer
-  parse s = case reads s of
-            [(num, "")] -> Just num
-            _           -> Nothing 
+  parse = readMaybe
 
 
 instance Parse IntOp where 
@@ -72,8 +71,8 @@ parseTokens stack (t:tokens) =
   case parse t of
     Just a  -> parseTokens (Lit a : stack) tokens
     Nothing -> case stack of
-      (l : r : es) -> case parse t of
-        Just op -> parseTokens (BinOp op r l : es) tokens
+      (r : l : es) -> case parse t of
+        Just op -> parseTokens (BinOp op l r: es) tokens
         Nothing -> parseVar stack t tokens 
       _         -> parseVar stack t tokens 
 
